@@ -2,14 +2,6 @@ import fen
 import pygame
 import chess_engine
 
-# for rank in range(DIMENSION):
-#     for file in range(DIMENSION):
-#         isLightSquare = ((file + rank) % 2 == 0)
-#        squareColour = lightColour if isLightSquare else darkColour
-
-
-start_board = fen.fen_to_board('rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR')
-
 
 DIMENSION = 8
 TILE_WIDTH = 60
@@ -50,18 +42,23 @@ def main():
     clock = pygame.time.Clock()
     run = True
     gs = chess_engine.GameState()
+    valid_moves = gs.get_valid_moves()
+    
     sq_selected = ()
     player_clicks = []
+    move_made = False
 
     while run:
         clock.tick(FPS)
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 run = False
+            
             elif event.type == pygame.MOUSEBUTTONDOWN:
                 location = pygame.mouse.get_pos()
                 col = location[0] // TILE_WIDTH
                 row = location[1] // TILE_WIDTH
+                
                 if sq_selected == (row, col): # If same square was selected, reset
                     sq_selected = ()
                     player_clicks = []
@@ -69,15 +66,28 @@ def main():
                     sq_selected = (row, col)
                     player_clicks.append(sq_selected)
                 
+                if len(player_clicks) == 1:
+                    print('Selected')
+
                 if len(player_clicks) == 2: # Second click submitted
                     move = chess_engine.Move(player_clicks[0], player_clicks[1], gs.board)
-                    gs.make_move(move)
+                    
+                    if move in valid_moves:
+                        gs.make_move(move)
+                        move_made = True
                     sq_selected = ()
                     player_clicks = []
+            
             elif event.type == pygame.KEYDOWN:
                 if event.key == pygame.K_z:
                     gs.undo_move()
-
+                    move_made = True
+        
+        if move_made:
+            valid_moves = gs.get_valid_moves()
+            print('moves reset')
+            move_made = False
+        
         draw_gamestate(WIN, gs.board)
         pygame.display.flip()
     pygame.quit()
