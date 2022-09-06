@@ -66,10 +66,13 @@ def main():
                     sq_selected = (row, col)
                     player_clicks.append(sq_selected)
                 
-                if len(player_clicks) == 1:
+                if len(player_clicks) == 0:
+                    print('Selection cleared')
+
+                elif len(player_clicks) == 1:
                     print('Selected')
 
-                if len(player_clicks) == 2: # Second click submitted
+                elif len(player_clicks) == 2: # Second click submitted
                     move = chess_engine.Move(player_clicks[0], player_clicks[1], gs.board)
                     
                     if move in valid_moves:
