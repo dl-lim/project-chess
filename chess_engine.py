@@ -16,7 +16,8 @@ class GameState:
         
         self.white_to_move = True
         self.move_log = []
-
+        self.white_king_pos = (7,4)
+        self.black_king_pos = (0,4)
 
 
     def make_move(self,move):
@@ -24,25 +25,104 @@ class GameState:
         Use Move object to make a move, does not work for castling and en passant
         """
         self.board[move.start_row][move.start_col] = '--'
-        self.board[move.end_row][move.end_col] = move.piece_moved
+        self.board[move.tgt_row][move.tgt_col] = move.piece_moved
         self.move_log.append(move)
         self.white_to_move = not self.white_to_move
         print(move.get_chess_notation())
+        if move.piece_moved == 'wK':
+            self.white_king_pos = move.tgt_sq
+        elif move.piece_moved == 'bK':
+            self.black_king_pos = move.tgt_sq
 
 
     def undo_move(self):
         if len(self.move_log) > 0:
             previous_move = self.move_log.pop()
             self.board[previous_move.start_row][previous_move.start_col] = previous_move.piece_moved
-            self.board[previous_move.end_row][previous_move.end_col] = previous_move.piece_captured
+            self.board[previous_move.tgt_row][previous_move.tgt_col] = previous_move.piece_captured
+            if previous_move.piece_moved == 'wK':
+                self.white_king_pos = previous_move.start_sq
+            elif previous_move.piece_moved == 'bK':
+                self.black_king_pos = previous_move.start_sq
             self.white_to_move = not self.white_to_move
 
     def get_valid_moves(self):
         """
         All moves considering checks
         """
+        all_possible_moves = self.get_all_possible_moves()
+        if self.check_for_checks():
+            print('CHECK')
         return self.get_all_possible_moves()
 
+    # check for checks on king relative to king
+    # if check, disable move if moving turn
+    
+    # cfc on enemy when move is made
+
+    def check_for_checks(self):
+        # for king piece, check rook, pawn, knight or bishop attack    
+
+        # check player team
+        if self.white_to_move:
+            r = self.white_king_pos[0]
+            c = self.white_king_pos[1]
+            enemy_colour = 'b'
+            pawn_directions = [(-1,-1), (-1,1)]
+        else:
+            r = self.black_king_pos[0]
+            c = self.black_king_pos[1]
+            enemy_colour = 'w'
+            pawn_directions = [(1,-1), (1,1)]
+
+
+        # Rook / Queen checks
+        directions = [(-1,0), (0,1), (1,0), (0,-1)]
+        for d in directions:
+            for i in range(1,8):
+                tgt_r = r + d[0] * i
+                tgt_c = c + d[1] * i
+                if 0 <= tgt_r <= 7 and 0 <= tgt_c <= 7: # Set boundaries
+                    tgt_piece = self.board[tgt_r][tgt_c]
+                    if tgt_piece[1] in ['R','Q']: # Empty space
+                        return True
+                else: # Beyond board boundaries
+                    break
+
+        # Bishop / Queen checks
+        directions = [(-1,-1), (-1,1), (1,-1), (1,1)]
+        for d in directions:
+            for i in range(1,8):
+                tgt_r = r + d[0] * i
+                tgt_c = c + d[1] * i
+                if 0 <= tgt_r <= 7 and 0 <= tgt_c <= 7: # Set boundaries
+                    tgt_piece = self.board[tgt_r][tgt_c]
+                    if tgt_piece[1] in ['B','Q']: # Empty space
+                        return True
+                else: # Beyond board boundaries
+                    break
+
+        # Knight checks
+        directions = [(-2,-1), (-1,-2), (1,-2), (2,-1), (2,1), (1,2), (-1,2), (-2,1)]
+        for d in directions:
+            tgt_r = r + d[0]
+            tgt_c = c + d[1]
+            if 0 <= tgt_r <= 7 and 0 <= tgt_c <= 7: 
+                tgt_piece = self.board[tgt_r][tgt_c]
+                if tgt_piece[1] == 'N' or tgt_piece[0] == enemy_colour:
+                    return True
+
+        # Pawn checks
+        for d in pawn_directions:
+            tgt_r = r + d[0]
+            tgt_c = c + d[1]
+            if 0 <= tgt_r <= 7 and 0 <= tgt_c <= 7:
+                tgt_piece = self.board[tgt_r][tgt_c]
+                if tgt_piece[1] == 'P' or tgt_piece[0] == enemy_colour:
+                    return True
+
+        # End
+        return False
     
     def get_all_possible_moves(self):
         """
@@ -57,7 +137,6 @@ class GameState:
                     self.move_functions[piece](r,c,moves)
                     
         return moves
-
 
     def get_pawn_moves(self,r,c,moves):
         if self.white_to_move: # White pawn logic
@@ -93,36 +172,80 @@ class GameState:
         enemy_colour = 'b' if self.white_to_move else 'w'
         for d in directions:
             for i in range(1,8):
-                end_r = r + d[0] * i
-                end_c = c + d[1] * i
-                if 0 <= end_r <= 7 and 0 <= end_c <= 7: # Set boundaries
-                    end_piece = self.board[end_r][end_c]
-                    if end_piece == '--': # Empty space
-                        moves.append(Move((r,c), (end_r, end_c), self.board))
-                    elif end_piece[0] == enemy_colour: # Enemy piece
-                        moves.append(Move((r,c), (end_r, end_c), self.board))
+                tgt_r = r + d[0] * i
+                tgt_c = c + d[1] * i
+                if 0 <= tgt_r <= 7 and 0 <= tgt_c <= 7: # Set boundaries
+                    tgt_piece = self.board[tgt_r][tgt_c]
+                    if tgt_piece == '--': # Empty space
+                        moves.append(Move((r,c), (tgt_r, tgt_c), self.board))
+                    elif tgt_piece[0] == enemy_colour: # Enemy piece
+                        moves.append(Move((r,c), (tgt_r, tgt_c), self.board))
                         break
                     else: # Own piece
                         break
                 else: # Beyond board boundaries
                     break
-        
-        pass
-    # while loop, condition rcboundaries, same/diff color pc
-     
-
+             
     def get_knight_moves(self,r,c,moves):
-        pass
+        directions = [(-2,-1), (-1,-2), (1,-2), (2,-1), (2,1), (1,2), (-1,2), (-2,1)]
+        enemy_colour = 'b' if self.white_to_move else 'w'
+        for d in directions:
+            tgt_r = r + d[0]
+            tgt_c = c + d[1]
+            if 0 <= tgt_r <= 7 and 0 <= tgt_c <= 7: 
+                tgt_piece = self.board[tgt_r][tgt_c]
+                if tgt_piece == '--' or tgt_piece[0] == enemy_colour:
+                    moves.append(Move((r,c), (tgt_r,tgt_c), self.board))
 
     def get_bishop_moves(self,r,c,moves):
-        pass
+        directions = [(-1,-1), (-1,1), (1,-1), (1,1)]
+        enemy_colour = 'b' if self.white_to_move else 'w'
+        for d in directions:
+            for i in range(1,8):
+                tgt_r = r + d[0] * i
+                tgt_c = c + d[1] * i
+                if 0 <= tgt_r <= 7 and 0 <= tgt_c <= 7: # Set boundaries
+                    tgt_piece = self.board[tgt_r][tgt_c]
+                    if tgt_piece == '--': # Empty space
+                        moves.append(Move((r,c), (tgt_r, tgt_c), self.board))
+                    elif tgt_piece[0] == enemy_colour: # Enemy piece
+                        moves.append(Move((r,c), (tgt_r, tgt_c), self.board))
+                        break
+                    else: # Own piece
+                        break
+                else: # Beyond board boundaries
+                    break
 
     def get_queen_moves(self,r,c,moves):
-        pass
+        directions = [(-1,0), (0,1), (1,0), (0,-1), (-1,-1), (-1,1), (1,-1), (1,1)]
+        enemy_colour = 'b' if self.white_to_move else 'w'
+        for d in directions:
+            for i in range(1,8):
+                tgt_r = r + d[0] * i
+                tgt_c = c + d[1] * i
+                if 0 <= tgt_r <= 7 and 0 <= tgt_c <= 7: # Set boundaries
+                    tgt_piece = self.board[tgt_r][tgt_c]
+                    if tgt_piece == '--': # Empty space
+                        moves.append(Move((r,c), (tgt_r, tgt_c), self.board))
+                    elif tgt_piece[0] == enemy_colour: # Enemy piece
+                        moves.append(Move((r,c), (tgt_r, tgt_c), self.board))
+                        break
+                    else: # Own piece
+                        break
+                else: # Beyond board boundaries
+                    break
 
     def get_king_moves(self,r,c,moves):
-        pass
-
+        directions = [(-1,0), (0,1), (1,0), (0,-1), (-1,-1), (-1,1), (1,-1), (1,1)]
+        enemy_colour = 'b' if self.white_to_move else 'w'
+        for d in directions:
+            tgt_r = r + d[0]
+            tgt_c = c + d[1]
+            if 0 <= tgt_r <= 7 and 0 <= tgt_c <= 7: # Set boundaries
+                tgt_piece = self.board[tgt_r][tgt_c]
+                if tgt_piece == '--' or tgt_piece[0] == enemy_colour: # Empty space
+                    moves.append(Move((r,c), (tgt_r, tgt_c), self.board))
+                
 
 class Move:
 
@@ -150,14 +273,14 @@ class Move:
     colsToFiles = {v: k for k, v in filesToCols.items()}
 
 
-    def __init__(self, start_sq, end_sq, board):
+    def __init__(self, start_sq, tgt_sq, board):
         self.start_row = start_sq[0]
         self.start_col = start_sq[1]
-        self.end_row = end_sq[0]
-        self.end_col = end_sq[1]
+        self.tgt_row = tgt_sq[0]
+        self.tgt_col = tgt_sq[1]
         self.piece_moved = board[self.start_row][self.start_col]
-        self.piece_captured = board[self.end_row][self.end_col]
-        self.move_id = self.start_row * 1000 + self.start_col * 100 + self.end_row * 10 + self.end_col
+        self.piece_captured = board[self.tgt_row][self.tgt_col]
+        self.move_id = self.start_row * 1000 + self.start_col * 100 + self.tgt_row * 10 + self.tgt_col
         
     def __eq__(self, other):
         """
@@ -168,7 +291,7 @@ class Move:
         return False
 
     def get_chess_notation(self):
-        return self.get_rank_file(self.start_row, self.start_col) + self.get_rank_file(self.end_row, self.end_col) 
+        return self.get_rank_file(self.start_row, self.start_col) + self.get_rank_file(self.tgt_row, self.tgt_col) 
 
     def get_rank_file(self, r, c):
         return self.colsToFiles[c] + self.rowsToRanks[r]
