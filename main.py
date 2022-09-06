@@ -43,7 +43,6 @@ def main():
     run = True
     gs = chess_engine.GameState()
     valid_moves = gs.get_valid_moves()
-    
     sq_selected = ()
     player_clicks = []
     move_made = False
@@ -88,7 +87,6 @@ def main():
         
         if move_made:
             valid_moves = gs.get_valid_moves()
-            print('moves reset')
             move_made = False
         
         draw_gamestate(WIN, gs.board)
