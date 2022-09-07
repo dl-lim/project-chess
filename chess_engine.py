@@ -5,7 +5,7 @@ from main import DIMENSION
 
 class GameState:
     def __init__(self):
-        self.board = fen.fen_to_board('rnbqk2r/pppp1ppp/7n/2b1p3/2B1P3/7N/PPPP1PPP/RNBQK2R')#'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR')#'r1bqkbnr/p1pp1ppp/np6/4p2Q/2B1P3/8/PPPP1PPP/RNBQK1NR')# '7k/5K2/8/8/5Q2/8/8/8')#'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR')
+        self.board = fen.fen_to_board('rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR')
         self.move_functions = {
             'P': self.get_pawn_moves,
             'R': self.get_rook_moves,
