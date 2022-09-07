@@ -95,7 +95,6 @@ def main():
                 location = pygame.mouse.get_pos()
                 col = location[0] // TILE_WIDTH
                 row = location[1] // TILE_WIDTH
-                
                 if sq_selected == (row, col): # If same square was selected, reset
                     sq_selected = ()
                     player_clicks = []
@@ -103,13 +102,7 @@ def main():
                     sq_selected = (row, col)
                     player_clicks.append(sq_selected)
                 
-                if len(player_clicks) == 0:
-                    print('Selection cleared')
-
-                elif len(player_clicks) == 1:
-                    print('Selected')
-
-                elif len(player_clicks) == 2: # Second click submitted
+                if len(player_clicks) == 2: # Second click submitted
                     move = chess_engine.Move(player_clicks[0], player_clicks[1], gs.board)
                     
                     for i in range(len(valid_moves)):
@@ -119,16 +112,29 @@ def main():
                             ANIMATE = True
                             sq_selected = ()
                             player_clicks = []
+                    
+                    if not move_made:
+                        player_clicks = [sq_selected]
             
             elif event.type == pygame.KEYDOWN:
                 if event.key == pygame.K_z:
                     gs.undo_move()
                     move_made = True
                     ANIMATE = False
+
+                elif event.key == pygame.K_r:
+                    clock = pygame.time.Clock()
+                    run = True
+                    gs = chess_engine.GameState()
+                    valid_moves = gs.get_valid_moves()
+                    sq_selected = ()
+                    player_clicks = []
+                    move_made = False
         
         if move_made:
             if ANIMATE:
                 animate_moves(gs.move_log[-1], WIN, gs.board, clock)
+            print('getting valid moves')
             valid_moves = gs.get_valid_moves()
             move_made = False
         

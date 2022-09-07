@@ -5,7 +5,7 @@ from main import DIMENSION
 
 class GameState:
     def __init__(self):
-        self.board = fen.fen_to_board('rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR')#'r1bqkbnr/p1pp1ppp/np6/4p2Q/2B1P3/8/PPPP1PPP/RNBQK1NR')# '7k/5K2/8/8/5Q2/8/8/8')#'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR')
+        self.board = fen.fen_to_board('rnbqk2r/pppp1ppp/7n/2b1p3/2B1P3/7N/PPPP1PPP/RNBQK2R')#'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR')#'r1bqkbnr/p1pp1ppp/np6/4p2Q/2B1P3/8/PPPP1PPP/RNBQK1NR')# '7k/5K2/8/8/5Q2/8/8/8')#'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR')
         self.move_functions = {
             'P': self.get_pawn_moves,
             'R': self.get_rook_moves,
@@ -21,6 +21,7 @@ class GameState:
         self.black_king_pos = (0,4)
         self.en_passant_possible = ()
         self.curr_castling_rights = CastlingRights()
+        self.castling_rights_log = [CastlingRights()]
         self.in_check = False
 
     def make_move(self,move):
@@ -52,18 +53,22 @@ class GameState:
 
         # Castling move
         if move.is_castling:
-            if move.end_col - move.start_col > 0: #kingside castle move
+            if move.end_col - move.start_col > 0: # kingside castle move
                 self.board[move.end_row][move.end_col-1] = self.board[move.end_row][move.end_col+1]
                 self.board[move.end_row][move.end_col+1] = '--'
-            else:
+            else: # queenside
                 self.board[move.end_row][move.end_col+1] = self.board[move.end_row][move.end_col-2]
                 self.board[move.end_row][move.end_col-2] = '--'
         
         # Update Castling Rights
         self.update_castling_rights(move)
 
-        # Change to other team before checking for checks
+        # Append to logs
+        self.castling_rights_log.append(CastlingRights(self.curr_castling_rights.wks, self.curr_castling_rights.wqs,
+                                        self.curr_castling_rights.bks, self.curr_castling_rights.bqs))
         self.move_log.append(move)
+
+        # Change to other team before checking for checks
         self.white_to_move = not self.white_to_move
 
         # Check for checks or checkmate or stalemate
@@ -88,18 +93,33 @@ class GameState:
                 self.board[prev_move.start_row][prev_move.end_col] = prev_move.piece_captured
                 self.en_passant_possible = (prev_move.end_row, prev_move.end_col)
 
+            if prev_move.is_castling:
+                if prev_move.end_col - prev_move.start_col > 0: # kingside castle move
+                    self.board[prev_move.end_row][prev_move.end_col+1] = self.board[prev_move.end_row][prev_move.end_col-1]
+                    self.board[prev_move.end_row][prev_move.end_col-1] = '--'
+                else: # queenside
+                    self.board[prev_move.end_row][prev_move.end_col-2] = self.board[prev_move.end_row][prev_move.end_col+1]
+                    self.board[prev_move.end_row][prev_move.end_col+1] = '--'
+
+            self.castling_rights_log.pop()
+            self.curr_castling_rights = self.castling_rights_log[-1]
+
             self.white_to_move = not self.white_to_move
 
     def get_valid_moves(self):
         """
         All moves considering checks
         """
-        ## This section requires debugging
+        temp_castling_rights = CastlingRights(self.curr_castling_rights.wks, self.curr_castling_rights.wqs,
+                                          self.curr_castling_rights.bks, self.curr_castling_rights.bqs)
+
         possible_moves = self.get_all_possible_moves()
         for m in range(len(possible_moves)-1, -1, -1):
             move = possible_moves[m]
             if self.check_for_checks(move):
                 possible_moves.pop(m)
+
+        self.curr_castling_rights = temp_castling_rights
         return possible_moves
 
     def update_castling_rights(self,move):
@@ -118,6 +138,17 @@ class GameState:
             if move.start_col == 0:
                 self.curr_castling_rights.bqs = False
             elif move.start_col == 7:
+                self.curr_castling_rights.bks = False
+
+        if move.piece_captured == 'wR':
+            if move.end_col == 0:
+                self.curr_castling_rights.wqs = False
+            elif move.end_col == 7:
+                self.curr_castling_rights.wks = False
+        elif move.piece_captured == 'bR':
+            if move.end_col == 0:
+                self.curr_castling_rights.bqs = False
+            elif move.end_col == 7:
                 self.curr_castling_rights.bks = False
 
     def square_under_attack(self,r,c,board=None):
@@ -352,7 +383,6 @@ class GameState:
     def get_king_moves(self,r,c,moves):
         directions = [(-1,0), (0,1), (1,0), (0,-1), (-1,-1), (-1,1), (1,-1), (1,1)]
         enemy_colour = 'b' if self.white_to_move else 'w'
-        team_colour = 'w' if self.white_to_move else 'b'
         for d in directions:
             tgt_r = r + d[0]
             tgt_c = c + d[1]
@@ -360,21 +390,21 @@ class GameState:
                 tgt_piece = self.board[tgt_r][tgt_c]
                 if tgt_piece == '--' or tgt_piece[0] == enemy_colour: # Empty space
                     moves.append(Move((r,c), (tgt_r, tgt_c), self.board))
-        self.get_castling_moves(r,c,moves,team_colour)
+        self.get_castling_moves(r,c,moves)
 
-    def get_castling_moves(self,r,c,moves,team_colour):
+    def get_castling_moves(self,r,c,moves):
         if not self.in_check:
-            if (self.white_to_move and self.curr_castling_rights.wks) or (not self.white_to_move and self.curr_castling_rights.bks):
-                self.get_kingside_castling_moves(r,c,moves,team_colour)
-            if (self.white_to_move and self.curr_castling_rights.wqs) or (not self.white_to_move and self.curr_castling_rights.bqs):
-                self.get_queenside_castling_moves(r,c,moves,team_colour)
+            if (self.white_to_move and self.curr_castling_rights.wks) or ((not self.white_to_move) and self.curr_castling_rights.bks):
+                self.get_kingside_castling_moves(r,c,moves)
+            if (self.white_to_move and self.curr_castling_rights.wqs) or ((not self.white_to_move) and self.curr_castling_rights.bqs):
+                self.get_queenside_castling_moves(r,c,moves)
     
-    def get_kingside_castling_moves(self,r,c,moves,team_colour):
+    def get_kingside_castling_moves(self,r,c,moves):
         if self.board[r][c+1] == '--' and self.board[r][c+2] == '--':
             if not self.square_under_attack(r, c+1) and not self.square_under_attack(r,c+2):
                 moves.append(Move((r,c),(r,c+2), self.board, is_castling=True))
 
-    def get_queenside_castling_moves(self,r,c,moves,team_colour):
+    def get_queenside_castling_moves(self,r,c,moves):
         if self.board[r][c-1] == '--' and self.board[r][c-2] == '--' and self.board[r][c-3] == '--':
             if not self.square_under_attack(r, c-1) and not self.square_under_attack(r,c-2):
                 moves.append(Move((r,c),(r,c-2), self.board, is_castling=True))
@@ -382,10 +412,6 @@ class GameState:
 
     def check_for_checkmate(self):
         current_moves = self.get_valid_moves()
-        self.white_to_move = not self.white_to_move # momentarily flip to opponent to check for moves
-        opponent_moves = self.get_valid_moves()
-
-        self.white_to_move = not self.white_to_move # swapping back
 
         if len(current_moves) == 0 and not self.check_for_checks():
             print('Stalemate')
@@ -409,7 +435,7 @@ class CastlingRights:
         self.bqs = bqs
 
     def get_rights(self):
-        cr_id = self.wks * 1000 + self.wqs * 100 + self.bks * 10 + self.bqs * 1
+        cr_id = str(self.wks * 1000 + self.wqs * 100 + self.bks * 10 + self.bqs * 1).zfill(4)
         print(cr_id)
         return cr_id
 
@@ -448,7 +474,7 @@ class Move:
         self.end_col = end_sq[1]
         self.piece_moved = board[self.start_row][self.start_col]
         self.piece_captured = board[self.end_row][self.end_col]
-        self.move_id = self.start_row * 1000 + self.start_col * 100 + self.end_row * 10 + self.end_col
+        self.move_id = str(self.start_row * 1000 + self.start_col * 100 + self.end_row * 10 + self.end_col).zfill(4)
         
         # Pawn Promotions
         self.is_pawn_promotion = (self.piece_moved == 'wP' and self.end_row == 0) or (self.piece_moved == 'bP' and self.end_row == 7)
