@@ -134,7 +134,6 @@ def main():
         if move_made:
             if ANIMATE:
                 animate_moves(gs.move_log[-1], WIN, gs.board, clock)
-            print('getting valid moves')
             valid_moves = gs.get_valid_moves()
             move_made = False
         
