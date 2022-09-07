@@ -20,6 +20,8 @@ class GameState:
         self.white_king_pos = (7,4)
         self.black_king_pos = (0,4)
         self.en_passant_possible = ()
+        self.curr_castling_rights = CastlingRights()
+        self.in_check = False
 
     def make_move(self,move):
         """
@@ -48,24 +50,44 @@ class GameState:
         else:
             self.en_passant_possible = ()
 
+        # Castling move
+        if move.is_castling:
+            if move.end_col - move.start_col > 0: #kingside castle move
+                self.board[move.end_row][move.end_col-1] = self.board[move.end_row][move.end_col+1]
+                self.board[move.end_row][move.end_col+1] = '--'
+            else:
+                self.board[move.end_row][move.end_col+1] = self.board[move.end_row][move.end_col-2]
+                self.board[move.end_row][move.end_col-2] = '--'
+        
+        # Update Castling Rights
+        self.update_castling_rights(move)
+
+        # Change to other team before checking for checks
+        self.move_log.append(move)
+        self.white_to_move = not self.white_to_move
 
         # Check for checks or checkmate or stalemate
         if self.check_for_checks() or len(self.get_valid_moves()) == 0:
             self.check_for_checkmate()
-
-        self.move_log.append(move)
-        self.white_to_move = not self.white_to_move
-
+        else:
+            self.in_check = False
 
     def undo_move(self):
         if len(self.move_log) > 0:
-            previous_move = self.move_log.pop()
-            self.board[previous_move.start_row][previous_move.start_col] = previous_move.piece_moved
-            self.board[previous_move.end_row][previous_move.end_col] = previous_move.piece_captured
-            if previous_move.piece_moved == 'wK':
-                self.white_king_pos = previous_move.start_sq
-            elif previous_move.piece_moved == 'bK':
-                self.black_king_pos = previous_move.start_sq
+            prev_move = self.move_log.pop()
+            self.board[prev_move.start_row][prev_move.start_col] = prev_move.piece_moved
+            self.board[prev_move.end_row][prev_move.end_col] = prev_move.piece_captured
+            
+            if prev_move.piece_moved == 'wK':
+                self.white_king_pos = prev_move.start_sq
+            elif prev_move.piece_moved == 'bK':
+                self.black_king_pos = prev_move.start_sq
+            
+            if prev_move.is_en_passant:
+                self.board[prev_move.end_row][prev_move.end_col] = '--'
+                self.board[prev_move.start_row][prev_move.end_col] = prev_move.piece_captured
+                self.en_passant_possible = (prev_move.end_row, prev_move.end_col)
+
             self.white_to_move = not self.white_to_move
 
     def get_valid_moves(self):
@@ -80,6 +102,103 @@ class GameState:
                 possible_moves.pop(m)
         return possible_moves
 
+    def update_castling_rights(self,move):
+        if move.piece_moved == 'wK':
+            self.curr_castling_rights.wks = False
+            self.curr_castling_rights.wqs = False
+        elif move.piece_moved == 'bK':
+            self.curr_castling_rights.bks = False
+            self.curr_castling_rights.bqs = False
+        elif move.piece_moved == 'wR':
+            if move.start_col == 0:
+                self.curr_castling_rights.wqs = False
+            elif move.start_col == 7:
+                self.curr_castling_rights.wks = False
+        elif move.piece_moved == 'bR':
+            if move.start_col == 0:
+                self.curr_castling_rights.bqs = False
+            elif move.start_col == 7:
+                self.curr_castling_rights.bks = False
+
+    def square_under_attack(self,r,c,board=None):
+        if board == None:
+            board = self.board
+
+        if self.white_to_move:
+            enemy_colour = 'b'
+            pawn_directions = [(-1,-1), (-1,1)]
+        else:
+            enemy_colour = 'w'
+            pawn_directions = [(1,-1), (1,1)]
+
+        # Rook / Queen checks
+        directions = [(-1,0), (0,1), (1,0), (0,-1)]
+        for d in directions:
+            for i in range(1,8):
+                tgt_r = r + d[0] * i
+                tgt_c = c + d[1] * i
+                if 0 <= tgt_r <= 7 and 0 <= tgt_c <= 7: # Set boundaries
+                    tgt_piece = board[tgt_r][tgt_c]
+                    if tgt_piece == '--':
+                        continue
+                    else:
+                        if tgt_piece[0] != enemy_colour:
+                            break
+                        elif tgt_piece[0] == enemy_colour and tgt_piece[1] in ['R','Q']:
+                            return True
+                else: # Beyond board boundaries
+                    break
+
+        # Bishop / Queen checks
+        directions = [(-1,-1), (-1,1), (1,-1), (1,1)]
+        for d in directions:
+            for i in range(1,8):
+                tgt_r = r + d[0] * i
+                tgt_c = c + d[1] * i
+                if 0 <= tgt_r <= 7 and 0 <= tgt_c <= 7: # Set boundaries
+                    tgt_piece = board[tgt_r][tgt_c]
+                    if tgt_piece == '--':
+                        continue
+                    else:
+                        if tgt_piece[0] != enemy_colour:
+                            break
+                        elif tgt_piece[0] == enemy_colour and tgt_piece[1] in ['B','Q']: # Empty space
+                            return True
+                else: # Beyond board boundaries
+                    break
+
+        # Knight checks
+        directions = [(-2,-1), (-1,-2), (1,-2), (2,-1), (2,1), (1,2), (-1,2), (-2,1)]
+        for d in directions:
+            tgt_r = r + d[0]
+            tgt_c = c + d[1]
+            if 0 <= tgt_r <= 7 and 0 <= tgt_c <= 7: 
+                tgt_piece = board[tgt_r][tgt_c]
+                if tgt_piece[0] == enemy_colour and tgt_piece[1] == 'N':
+                    return True
+
+        # Pawn checks
+        for d in pawn_directions:
+            tgt_r = r + d[0]
+            tgt_c = c + d[1]
+            if 0 <= tgt_r <= 7 and 0 <= tgt_c <= 7:
+                tgt_piece = board[tgt_r][tgt_c]
+                if tgt_piece[0] == enemy_colour and tgt_piece[1] == 'P':
+                    return True
+
+        # King checks
+        directions = [(-1,0), (0,1), (1,0), (0,-1), (-1,-1), (-1,1), (1,-1), (1,1)]
+        for d in directions:
+            tgt_r = r + d[0]
+            tgt_c = c + d[1]
+            if 0 <= tgt_r <= 7 and 0 <= tgt_c <= 7: 
+                tgt_piece = board[tgt_r][tgt_c]
+                if tgt_piece[0] == enemy_colour and tgt_piece[1] == 'K':
+                    return True
+
+        # End
+        return False
+        
     def check_for_checks(self, move=None):
         # for king piece, check rook, pawn, knight or bishop attack    
         
@@ -101,85 +220,16 @@ class GameState:
                         test_black_king_pos = (row,col)
 
         # check player team
-        if self.white_to_move and move:
+        if self.white_to_move:
             r = test_white_king_pos[0]
             c = test_white_king_pos[1]
-            enemy_colour = 'b'
-            pawn_directions = [(-1,-1), (-1,1)]
         else:
             r = test_black_king_pos[0]
             c = test_black_king_pos[1]
-            enemy_colour = 'w'
-            pawn_directions = [(1,-1), (1,1)]
 
-        # Rook / Queen checks
-        directions = [(-1,0), (0,1), (1,0), (0,-1)]
-        for d in directions:
-            for i in range(1,8):
-                tgt_r = r + d[0] * i
-                tgt_c = c + d[1] * i
-                if 0 <= tgt_r <= 7 and 0 <= tgt_c <= 7: # Set boundaries
-                    tgt_piece = test_board[tgt_r][tgt_c]
-                    if tgt_piece == '--':
-                        continue
-                    else:
-                        if tgt_piece[0] != enemy_colour:
-                            break
-                        elif tgt_piece[0] == enemy_colour and tgt_piece[1] in ['R','Q']:
-                            return True
-                else: # Beyond board boundaries
-                    break
+        return self.square_under_attack(r,c,test_board)
 
-        # Bishop / Queen checks
-        directions = [(-1,-1), (-1,1), (1,-1), (1,1)]
-        for d in directions:
-            for i in range(1,8):
-                tgt_r = r + d[0] * i
-                tgt_c = c + d[1] * i
-                if 0 <= tgt_r <= 7 and 0 <= tgt_c <= 7: # Set boundaries
-                    tgt_piece = test_board[tgt_r][tgt_c]
-                    if tgt_piece == '--':
-                        continue
-                    else:
-                        if tgt_piece[0] != enemy_colour:
-                            break
-                        elif tgt_piece[0] == enemy_colour and tgt_piece[1] in ['B','Q']: # Empty space
-                            return True
-                else: # Beyond board boundaries
-                    break
 
-        # Knight checks
-        directions = [(-2,-1), (-1,-2), (1,-2), (2,-1), (2,1), (1,2), (-1,2), (-2,1)]
-        for d in directions:
-            tgt_r = r + d[0]
-            tgt_c = c + d[1]
-            if 0 <= tgt_r <= 7 and 0 <= tgt_c <= 7: 
-                tgt_piece = test_board[tgt_r][tgt_c]
-                if tgt_piece[0] == enemy_colour and tgt_piece[1] == 'N':
-                    return True
-
-        # Pawn checks
-        for d in pawn_directions:
-            tgt_r = r + d[0]
-            tgt_c = c + d[1]
-            if 0 <= tgt_r <= 7 and 0 <= tgt_c <= 7:
-                tgt_piece = test_board[tgt_r][tgt_c]
-                if tgt_piece[0] == enemy_colour and tgt_piece[1] == 'P':
-                    return True
-
-        # King checks
-        directions = [(-1,0), (0,1), (1,0), (0,-1), (-1,-1), (-1,1), (1,-1), (1,1)]
-        for d in directions:
-            tgt_r = r + d[0]
-            tgt_c = c + d[1]
-            if 0 <= tgt_r <= 7 and 0 <= tgt_c <= 7: 
-                tgt_piece = test_board[tgt_r][tgt_c]
-                if tgt_piece[0] == enemy_colour and tgt_piece[1] == 'K':
-                    return True
-
-        # End
-        return False
-    
     def get_all_possible_moves(self):
         """
         All moves without considering checks
@@ -230,8 +280,6 @@ class GameState:
                     moves.append(Move((r,c), (r+1,c+1), self.board))
                 elif (r+1,c+1) == self.en_passant_possible:
                     moves.append(Move((r,c), (r+1,c+1), self.board, is_en_passant=True))
-
-        # add en passant later
 
     def get_rook_moves(self,r,c,moves):
         directions = [(-1,0), (0,1), (1,0), (0,-1)]
@@ -304,6 +352,7 @@ class GameState:
     def get_king_moves(self,r,c,moves):
         directions = [(-1,0), (0,1), (1,0), (0,-1), (-1,-1), (-1,1), (1,-1), (1,1)]
         enemy_colour = 'b' if self.white_to_move else 'w'
+        team_colour = 'w' if self.white_to_move else 'b'
         for d in directions:
             tgt_r = r + d[0]
             tgt_c = c + d[1]
@@ -311,17 +360,31 @@ class GameState:
                 tgt_piece = self.board[tgt_r][tgt_c]
                 if tgt_piece == '--' or tgt_piece[0] == enemy_colour: # Empty space
                     moves.append(Move((r,c), (tgt_r, tgt_c), self.board))
-                
-# valid moves become none
-# can either be checkmate or stalemate
-# stalemate happens when enemy has no moves too
-# checkmate happens when enemy still has moves
+        self.get_castling_moves(r,c,moves,team_colour)
+
+    def get_castling_moves(self,r,c,moves,team_colour):
+        if not self.in_check:
+            if (self.white_to_move and self.curr_castling_rights.wks) or (not self.white_to_move and self.curr_castling_rights.bks):
+                self.get_kingside_castling_moves(r,c,moves,team_colour)
+            if (self.white_to_move and self.curr_castling_rights.wqs) or (not self.white_to_move and self.curr_castling_rights.bqs):
+                self.get_queenside_castling_moves(r,c,moves,team_colour)
+    
+    def get_kingside_castling_moves(self,r,c,moves,team_colour):
+        if self.board[r][c+1] == '--' and self.board[r][c+2] == '--':
+            if not self.square_under_attack(r, c+1) and not self.square_under_attack(r,c+2):
+                moves.append(Move((r,c),(r,c+2), self.board, is_castling=True))
+
+    def get_queenside_castling_moves(self,r,c,moves,team_colour):
+        if self.board[r][c-1] == '--' and self.board[r][c-2] == '--' and self.board[r][c-3] == '--':
+            if not self.square_under_attack(r, c-1) and not self.square_under_attack(r,c-2):
+                moves.append(Move((r,c),(r,c-2), self.board, is_castling=True))
 
 
     def check_for_checkmate(self):
         current_moves = self.get_valid_moves()
         self.white_to_move = not self.white_to_move # momentarily flip to opponent to check for moves
         opponent_moves = self.get_valid_moves()
+
         self.white_to_move = not self.white_to_move # swapping back
 
         if len(current_moves) == 0 and not self.check_for_checks():
@@ -330,12 +393,25 @@ class GameState:
         elif len(current_moves) == 0 and self.check_for_checks():
             winner = 'Black' if self.white_to_move else 'White'
             loser = 'White' if self.white_to_move else 'Black'
+            self.in_check = True
             print('CHECKMATE for', loser)
             print(winner, 'wins!')
         else:
             enemy_team = 'White' if self.white_to_move else 'Black'
+            self.in_check = True
             print('CHECK on', enemy_team)
 
+class CastlingRights:
+    def __init__(self, wks=True, wqs=True, bks=True, bqs=True):
+        self.wks = wks
+        self.wqs = wqs
+        self.bks = bks
+        self.bqs = bqs
+
+    def get_rights(self):
+        cr_id = self.wks * 1000 + self.wqs * 100 + self.bks * 10 + self.bqs * 1
+        print(cr_id)
+        return cr_id
 
 class Move:
 
@@ -363,7 +439,7 @@ class Move:
     colsToFiles = {v: k for k, v in filesToCols.items()}
 
 
-    def __init__(self, start_sq, end_sq, board, is_en_passant=False):
+    def __init__(self, start_sq, end_sq, board, is_en_passant=False, is_castling=False):
         self.start_sq = start_sq
         self.start_row = start_sq[0]
         self.start_col = start_sq[1]
@@ -373,10 +449,17 @@ class Move:
         self.piece_moved = board[self.start_row][self.start_col]
         self.piece_captured = board[self.end_row][self.end_col]
         self.move_id = self.start_row * 1000 + self.start_col * 100 + self.end_row * 10 + self.end_col
+        
+        # Pawn Promotions
         self.is_pawn_promotion = (self.piece_moved == 'wP' and self.end_row == 0) or (self.piece_moved == 'bP' and self.end_row == 7)
+        
+        # En Passant
         self.is_en_passant = is_en_passant
         if self.is_en_passant:
             self.piece_captured = 'wP' if self.piece_moved == 'bP' else 'bP'
+
+        # Castling
+        self.is_castling = is_castling
 
     def __eq__(self, other):
         """
