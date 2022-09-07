@@ -5,7 +5,7 @@ from main import DIMENSION
 
 class GameState:
     def __init__(self):
-        self.board = fen.fen_to_board('r1bqkbnr/p1pp1ppp/np6/4p2Q/2B1P3/8/PPPP1PPP/RNBQK1NR')# '7k/5K2/8/8/5Q2/8/8/8')#'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR')
+        self.board = fen.fen_to_board('rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR')#'r1bqkbnr/p1pp1ppp/np6/4p2Q/2B1P3/8/PPPP1PPP/RNBQK1NR')# '7k/5K2/8/8/5Q2/8/8/8')#'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR')
         self.move_functions = {
             'P': self.get_pawn_moves,
             'R': self.get_rook_moves,
@@ -19,22 +19,43 @@ class GameState:
         self.move_log = []
         self.white_king_pos = (7,4)
         self.black_king_pos = (0,4)
+        self.en_passant_possible = ()
 
     def make_move(self,move):
         """
-        Use Move object to make a move, does not work for castling and en passant
+        Use Move object to make a move
         """
         self.board[move.start_row][move.start_col] = '--'
         self.board[move.end_row][move.end_col] = move.piece_moved
-        self.move_log.append(move)
-        self.white_to_move = not self.white_to_move
+        
         if move.piece_moved == 'wK':
             self.white_king_pos = move.end_sq
         elif move.piece_moved == 'bK':
             self.black_king_pos = move.end_sq
         print(move.get_chess_notation())
+        
+        # Checks if move pushes pawns to promotion
+        if move.is_pawn_promotion:
+            self.board[move.end_row][move.end_col] = move.piece_moved[0] + 'Q' # to do this choice on main.py to avoid changing the Move class
+        
+        # Removes enemy pawn behind en passant
+        if move.is_en_passant:
+            self.board[move.start_row][move.end_col] = '--'
+        
+        # Generates en passant posibilities
+        if move.piece_moved[1] == 'P' and abs(move.start_row - move.end_row) == 2:
+            self.en_passant_possible = ((move.start_row + move.end_row) // 2, move.start_col)
+        else:
+            self.en_passant_possible = ()
+
+
+        # Check for checks or checkmate or stalemate
         if self.check_for_checks() or len(self.get_valid_moves()) == 0:
             self.check_for_checkmate()
+
+        self.move_log.append(move)
+        self.white_to_move = not self.white_to_move
+
 
     def undo_move(self):
         if len(self.move_log) > 0:
@@ -90,12 +111,6 @@ class GameState:
             c = test_black_king_pos[1]
             enemy_colour = 'w'
             pawn_directions = [(1,-1), (1,1)]
-
-        # if fen.board_to_fen(self.board) == 'rnbqkbnr/pppp1ppp/8/4p2Q/4P3/8/PPPP1PPP/RNB1KBNR':
-        #     for row in test_board:
-        #         print(row)
-        #     print('-----------------------------------------')
-        #     print(enemy_colour)
 
         # Rook / Queen checks
         directions = [(-1,0), (0,1), (1,0), (0,-1)]
@@ -172,10 +187,13 @@ class GameState:
         moves = []
         for r in range(DIMENSION):
             for c in range(DIMENSION):
-                turn = self.board[r][c][0]
-                if (turn == 'w' and self.white_to_move) or (turn == 'b' and not self.white_to_move):
-                    piece = self.board[r][c][1]
-                    self.move_functions[piece](r,c,moves)
+                if self.board[r][c] == '--':
+                    continue
+                else:
+                    team = self.board[r][c][0]
+                    if (team == 'w' and self.white_to_move) or (team == 'b' and not self.white_to_move):
+                        piece = self.board[r][c][1]
+                        self.move_functions[piece](r,c,moves)
         return moves
 
     def get_pawn_moves(self,r,c,moves):
@@ -187,10 +205,14 @@ class GameState:
             if c-1 >= 0:
                 if self.board[r-1][c-1][0] == 'b':
                     moves.append(Move((r,c), (r-1,c-1), self.board))
-
+                elif (r-1,c-1) == self.en_passant_possible:
+                    moves.append(Move((r,c), (r-1,c-1), self.board, is_en_passant=True))
+            
             if c+1 <= 7:
                 if self.board[r-1][c+1][0] == 'b':
                     moves.append(Move((r,c), (r-1,c+1), self.board))
+                elif (r-1,c+1) == self.en_passant_possible:
+                    moves.append(Move((r,c), (r-1,c+1), self.board, is_en_passant=True))
 
         else: # Black pawn logic
             if self.board[r+1][c] == '--': # All 1-square pawn advance
@@ -200,11 +222,15 @@ class GameState:
             if c-1 >= 0:
                 if self.board[r+1][c-1][0] == 'w':
                     moves.append(Move((r,c), (r+1,c-1), self.board))
+                elif (r+1,c-1) == self.en_passant_possible:
+                    moves.append(Move((r,c), (r+1,c-1), self.board, is_en_passant=True))
 
             if c+1 <= 7:
                 if self.board[r+1][c+1][0] == 'w':
                     moves.append(Move((r,c), (r+1,c+1), self.board))
-        # add pawn promotions later
+                elif (r+1,c+1) == self.en_passant_possible:
+                    moves.append(Move((r,c), (r+1,c+1), self.board, is_en_passant=True))
+
         # add en passant later
 
     def get_rook_moves(self,r,c,moves):
@@ -302,8 +328,10 @@ class GameState:
             print('Stalemate')
 
         elif len(current_moves) == 0 and self.check_for_checks():
+            winner = 'Black' if self.white_to_move else 'White'
             loser = 'White' if self.white_to_move else 'Black'
             print('CHECKMATE for', loser)
+            print(winner, 'wins!')
         else:
             enemy_team = 'White' if self.white_to_move else 'Black'
             print('CHECK on', enemy_team)
@@ -335,7 +363,7 @@ class Move:
     colsToFiles = {v: k for k, v in filesToCols.items()}
 
 
-    def __init__(self, start_sq, end_sq, board):
+    def __init__(self, start_sq, end_sq, board, is_en_passant=False):
         self.start_sq = start_sq
         self.start_row = start_sq[0]
         self.start_col = start_sq[1]
@@ -345,7 +373,11 @@ class Move:
         self.piece_moved = board[self.start_row][self.start_col]
         self.piece_captured = board[self.end_row][self.end_col]
         self.move_id = self.start_row * 1000 + self.start_col * 100 + self.end_row * 10 + self.end_col
-        
+        self.is_pawn_promotion = (self.piece_moved == 'wP' and self.end_row == 0) or (self.piece_moved == 'bP' and self.end_row == 7)
+        self.is_en_passant = is_en_passant
+        if self.is_en_passant:
+            self.piece_captured = 'wP' if self.piece_moved == 'bP' else 'bP'
+
     def __eq__(self, other):
         """
         Equals method

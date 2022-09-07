@@ -74,11 +74,12 @@ def main():
                 elif len(player_clicks) == 2: # Second click submitted
                     move = chess_engine.Move(player_clicks[0], player_clicks[1], gs.board)
                     
-                    if move in valid_moves:
-                        gs.make_move(move)
-                        move_made = True
-                    sq_selected = ()
-                    player_clicks = []
+                    for i in range(len(valid_moves)):
+                        if move == valid_moves[i]: # use this check in order to take moves from valid moves instead of mouse click
+                            gs.make_move(valid_moves[i])
+                            move_made = True
+                            sq_selected = ()
+                            player_clicks = []
             
             elif event.type == pygame.KEYDOWN:
                 if event.key == pygame.K_z:
