@@ -10,5 +10,3 @@ move does not have Move class parameters
 
 # Improvements:
 consider passing team parameter through functions
-
-Undo castling!

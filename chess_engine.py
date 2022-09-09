@@ -20,6 +20,7 @@ class GameState:
         self.white_king_pos = (7,4)
         self.black_king_pos = (0,4)
         self.en_passant_possible = ()
+        self.en_passant_log = []
         self.curr_castling_rights = CastlingRights()
         self.castling_rights_log = [CastlingRights()]
         self.in_check = False
@@ -50,6 +51,8 @@ class GameState:
             self.en_passant_possible = ((move.start_row + move.end_row) // 2, move.start_col)
         else:
             self.en_passant_possible = ()
+
+        self.en_passant_log.append(self.en_passant_possible)
 
         # Castling move
         if move.is_castling:
@@ -91,7 +94,9 @@ class GameState:
             if prev_move.is_en_passant:
                 self.board[prev_move.end_row][prev_move.end_col] = '--'
                 self.board[prev_move.start_row][prev_move.end_col] = prev_move.piece_captured
-                self.en_passant_possible = (prev_move.end_row, prev_move.end_col)
+            
+            self.en_passant_log.pop()
+            self.en_passant_possible = self.en_passant_log[-1] #(prev_move.end_row, prev_move.end_col)
 
             if prev_move.is_castling:
                 if prev_move.end_col - prev_move.start_col > 0: # kingside castle move
