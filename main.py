@@ -66,12 +66,17 @@ def animate_moves(move,WIN,board,clock):
         colour = LIGHT if ((move.end_col + move.end_row) % 2 == 0) else DARK
         end_square = pygame.Rect(move.end_col * TILE_WIDTH, move.end_row * TILE_WIDTH, TILE_WIDTH, TILE_WIDTH)
         pygame.draw.rect(WIN,colour, end_square)
+
         # draw captured piece
         if move.piece_captured != '--':
+            if move.is_en_passant:
+                en_passant_row = (move.end_row - 1) if move.piece_moved[0] == 'b' else (move.end_row + 1)
+                end_square = pygame.Rect(move.end_col * TILE_WIDTH, en_passant_row * TILE_WIDTH, TILE_WIDTH, TILE_WIDTH)
             WIN.blit(IMAGES[move.piece_captured], end_square)
-        
+
         # draw moving piece
-        WIN.blit(IMAGES[move.piece_moved], pygame.Rect(c * TILE_WIDTH, r * TILE_WIDTH, TILE_WIDTH, TILE_WIDTH))
+        if move.piece_moved != '--':
+            WIN.blit(IMAGES[move.piece_moved], pygame.Rect(c * TILE_WIDTH, r * TILE_WIDTH, TILE_WIDTH, TILE_WIDTH))
         pygame.display.flip()
         clock.tick(60)
 
