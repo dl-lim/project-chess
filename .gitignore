@@ -1,4 +1,6 @@
 /.vscode
-/venv
+/.venv
 /__pycache__
 /notes.md
+/*egg-info
+test*

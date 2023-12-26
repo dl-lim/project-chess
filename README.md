@@ -8,7 +8,9 @@ Unfortunately AI is still a WIP - I will be starting with a naive random AI, to 
 
 More work needs to be done on the interface to include a move log, captured pieces, black/white switch and AI selector.
 
-## Instructions
+## User Instructions
+`python -m venv .venv` and `pip install -r requirements.txt`
+
 To start, run `main.py`
 
 Pressing the `R` key during gameplay resets the board

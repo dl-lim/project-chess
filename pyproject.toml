@@ -1,0 +1,12 @@
+[build-system]
+requires = ["setuptools >= 61.0", "pip-tools >= 7.3.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "my-game"
+version = "0.1.0"
+description = "A simple game using pygame"
+readme = "README.md"
+authors = [{name = "DL", email = "69715968+dl-lim@users.noreply.github.com"}]
+requires-python = ">=3.8"
+dependencies = ["pygame == 2.1.2"]
