@@ -1,11 +1,11 @@
-import fen
 import copy
-from main import DIMENSION
+from app.fen import fen_to_board
 
+DIMENSION = 8
 
 class GameState:
     def __init__(self):
-        self.board = fen.fen_to_board('rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR')
+        self.board = fen_to_board('rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR')
         self.move_functions = {
             'P': self.get_pawn_moves,
             'R': self.get_rook_moves,
