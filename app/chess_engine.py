@@ -25,7 +25,14 @@ class GameState:
         self.castling_rights_log = [CastlingRights()]
         self.in_check = False
 
-    def make_move(self,move):
+        self.checkmate = False
+        self.stalemate = False
+
+
+    def get_move_notation(self, move):
+        return str((len(self.move_log) // 2) + 1) + " " + move.get_chess_notation()
+
+    def make_move(self, move):
         """
         Use Move object to make a move
         """
@@ -36,7 +43,7 @@ class GameState:
             self.white_king_pos = move.end_sq
         elif move.piece_moved == 'bK':
             self.black_king_pos = move.end_sq
-        print(move.get_chess_notation())
+        print(self.get_move_notation(move))
         
         # Checks if move pushes pawns to promotion
         if move.is_pawn_promotion:
@@ -110,6 +117,9 @@ class GameState:
             self.curr_castling_rights = self.castling_rights_log[-1]
 
             self.white_to_move = not self.white_to_move
+
+            self.checkmate = False
+            self.stalemate = False
 
     def get_valid_moves(self):
         """
@@ -419,12 +429,14 @@ class GameState:
         current_moves = self.get_valid_moves()
 
         if len(current_moves) == 0 and not self.check_for_checks():
+            self.stalemate = True
             print('Stalemate')
 
         elif len(current_moves) == 0 and self.check_for_checks():
             winner = 'Black' if self.white_to_move else 'White'
             loser = 'White' if self.white_to_move else 'Black'
             self.in_check = True
+            self.checkmate = True
             print('CHECKMATE for', loser)
             print(winner, 'wins!')
         else:
