@@ -1,8 +1,9 @@
-from app.game import run_game
+from app.game2 import ChessGame
 
 
 def main():
-    run_game()
+    chess_game = ChessGame()
+    chess_game.run()
 
 if __name__ == "__main__":
     main()

@@ -9,4 +9,12 @@ description = "A simple game using pygame"
 readme = "README.md"
 authors = [{name = "DL", email = "69715968+dl-lim@users.noreply.github.com"}]
 requires-python = ">=3.8"
-dependencies = ["pygame == 2.1.2"]
+dependencies = [
+    "pygame == 2.1.2",
+    "icecream"
+    ]
+
+[project.optional-dependencies]
+dev = [
+    "icecream"
+    ]
