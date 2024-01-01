@@ -158,11 +158,12 @@ def run_game():
                     player_clicks = []
                     move_made = False
                     game_over = False
-        
+                    print('Game reset.')
 
         # AI move finder
         if not game_over and not player_turn:
-            ai_move = find_greedy_move(gs, valid_moves)
+            # ai_move = find_greedy_move(gs, valid_moves)
+            ai_move = None
             if not ai_move:
                 ai_move = find_random_move(valid_moves)
             gs.make_move(ai_move)

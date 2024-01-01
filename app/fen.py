@@ -1,3 +1,8 @@
+"""
+Forsyth–Edwards Notation (FEN) is a standard notation 
+for describing a particular board position of a chess game
+"""
+
 piece_lookup = {
     'r' : 'bR',
     'n' : 'bN',
