@@ -67,7 +67,7 @@ class ChessGame:
             
             if move_made:
                 if ANIMATE:
-                    self._animate_moves(gs.move_log[-1], GameConfig.WIN, gs.board)
+                    self._animate_moves(gs.move_log[-1], gs.board)
                 valid_moves = gs.get_valid_moves()
                 move_made = False
             
@@ -114,8 +114,8 @@ class ChessGame:
         frame_count = (abs(dr) + abs(dc)) * frames_per_sq
         for frame in range(frame_count + 1):
             r,c = (move.start_row + dr * frame / frame_count,move.start_col + dc * frame / frame_count)
-            self._draw_board(GameConfig.WIN)
-            self._draw_pieces(GameConfig.WIN,board)
+            self._draw_board()
+            self._draw_pieces(board)
             colour = GameConfig.LIGHT if ((move.end_col + move.end_row) % 2 == 0) else GameConfig.DARK
             end_square = pygame.Rect(move.end_col * GameConfig.TILE_WIDTH, move.end_row * GameConfig.TILE_WIDTH, GameConfig.TILE_WIDTH, GameConfig.TILE_WIDTH)
             pygame.draw.rect(GameConfig.WIN,colour, end_square)

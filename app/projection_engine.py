@@ -17,6 +17,7 @@ class Projection(Board):
             'Q': self.get_queen_moves,
             'K': self.get_king_moves
         }
+        self.projection_log = []
 
     def __getattr__(self, attr):
         # Delegating attribute access to the GameState instance
@@ -25,7 +26,94 @@ class Projection(Board):
         else:
             raise AttributeError(f"'Projection' object has no attribute '{attr}'")
     
-    
+    def make_projection(self, move):
+        """
+        Use Move object to project a move
+        """
+        self.board[move.start_row][move.start_col] = '--'
+        self.board[move.end_row][move.end_col] = move.piece_moved
+        
+        if move.piece_moved == 'wK':
+            self.white_king_pos = move.end_sq
+        elif move.piece_moved == 'bK':
+            self.black_king_pos = move.end_sq
+        print(move.get_chess_notation())
+        
+        # Checks if move pushes pawns to promotion
+        if move.is_pawn_promotion:
+            self.board[move.end_row][move.end_col] = move.piece_moved[0] + 'Q' # to do this choice on main.py to avoid changing the Move class
+        
+        # Removes enemy pawn behind en passant
+        if move.is_en_passant:
+            self.board[move.start_row][move.end_col] = '--'
+        
+        # Generates en passant posibilities
+        if move.piece_moved[1] == 'P' and abs(move.start_row - move.end_row) == 2:
+            self.en_passant_possible = ((move.start_row + move.end_row) // 2, move.start_col)
+        else:
+            self.en_passant_possible = ()
+
+        self.en_passant_log.append(self.en_passant_possible)
+
+        # Castling move
+        if move.is_castling:
+            if move.end_col - move.start_col > 0: # kingside castle move
+                self.board[move.end_row][move.end_col-1] = self.board[move.end_row][move.end_col+1]
+                self.board[move.end_row][move.end_col+1] = '--'
+            else: # queenside
+                self.board[move.end_row][move.end_col+1] = self.board[move.end_row][move.end_col-2]
+                self.board[move.end_row][move.end_col-2] = '--'
+        
+        # Update Castling Rights
+        self.update_castling_rights(move)
+
+        # Append to logs
+        self.castling_rights_log.append(CastlingRights(self.curr_castling_rights.wks, self.curr_castling_rights.wqs,
+                                        self.curr_castling_rights.bks, self.curr_castling_rights.bqs))
+        self.projection_log.append(move)
+
+        # Change to other team before checking for checks
+        self.white_to_move = not self.white_to_move
+
+        # Check for checks or checkmate or stalemate
+        if self.check_for_checks() or len(self.get_valid_moves()) == 0:
+            self.check_for_checkmate()
+        else:
+            self.in_check = False
+
+    def undo_projection(self):
+        if len(self.projection_log) > 0:
+            prev_move = self.projection_log.pop()
+            self.board[prev_move.start_row][prev_move.start_col] = prev_move.piece_moved
+            self.board[prev_move.end_row][prev_move.end_col] = prev_move.piece_captured
+            
+            if prev_move.piece_moved == 'wK':
+                self.white_king_pos = prev_move.start_sq
+            elif prev_move.piece_moved == 'bK':
+                self.black_king_pos = prev_move.start_sq
+            
+            if prev_move.is_en_passant:
+                self.board[prev_move.end_row][prev_move.end_col] = '--'
+                self.board[prev_move.start_row][prev_move.end_col] = prev_move.piece_captured
+            
+            self.en_passant_log.pop()
+            self.en_passant_possible = self.en_passant_log[-1] #(prev_move.end_row, prev_move.end_col)
+
+            if prev_move.is_castling:
+                if prev_move.end_col - prev_move.start_col > 0: # kingside castle move
+                    self.board[prev_move.end_row][prev_move.end_col+1] = self.board[prev_move.end_row][prev_move.end_col-1]
+                    self.board[prev_move.end_row][prev_move.end_col-1] = '--'
+                else: # queenside
+                    self.board[prev_move.end_row][prev_move.end_col-2] = self.board[prev_move.end_row][prev_move.end_col+1]
+                    self.board[prev_move.end_row][prev_move.end_col+1] = '--'
+
+            self.castling_rights_log.pop()
+            self.curr_castling_rights = self.castling_rights_log[-1]
+
+            self.white_to_move = not self.white_to_move
+
+        
+
     def get_valid_moves(self):
         """
         All moves considering checks
@@ -397,7 +485,7 @@ class Move:
             self.piece_captured = 'wP' if self.piece_moved == 'bP' else 'bP'
 
         # Castling
-        # self.is_castling = is_castling
+        self.is_castling = is_castling
 
     def __eq__(self, other):
         """
