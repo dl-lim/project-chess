@@ -1,5 +1,5 @@
 import pygame
-from app.chess_engine import GameState, Move
+from app.archived_chess_engine import GameState, Move
 
 
 DIMENSION = 8
