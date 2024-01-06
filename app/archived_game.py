@@ -1,5 +1,5 @@
 import pygame
-from app.chess_engine import GameState, Move
+from app.archived_chess_engine import GameState, Move
 from app.chess_ai import find_random_move, find_greedy_move
 
 ASSETS_FOLDER = 'app/assets/'
