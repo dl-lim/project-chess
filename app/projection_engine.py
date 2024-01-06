@@ -54,6 +54,8 @@ class Projection(Board):
             self.en_passant_possible = ()
 
         self.en_passant_log.append(self.en_passant_possible)
+        ic(self.en_passant_log)
+
 
         # Castling move
         if move.is_castling:
@@ -96,6 +98,7 @@ class Projection(Board):
                 self.board[prev_move.end_row][prev_move.end_col] = '--'
                 self.board[prev_move.start_row][prev_move.end_col] = prev_move.piece_captured
             
+            ic(self.en_passant_log)
             self.en_passant_log.pop()
             self.en_passant_possible = self.en_passant_log[-1] #(prev_move.end_row, prev_move.end_col)
 
