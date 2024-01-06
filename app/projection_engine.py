@@ -1,5 +1,5 @@
 from app.board import Board
-from app.config import GameConfig
+from app.config import GAME_CONFIG
 import copy
 
 from icecream import ic
@@ -249,8 +249,8 @@ class Projection(Board):
             test_board[move.end_row][move.end_col] = move.piece_moved
         
         test_white_king_pos, test_black_king_pos = None, None
-        for row in range(GameConfig.DIMENSION):
-            for col in range(GameConfig.DIMENSION):
+        for row in range(GAME_CONFIG.DIMENSION):
+            for col in range(GAME_CONFIG.DIMENSION):
                 if test_white_king_pos and test_black_king_pos:
                     break
                 if test_board[row][col][1] == 'K':
@@ -275,8 +275,8 @@ class Projection(Board):
         All moves without considering checks
         """
         moves = []
-        for r in range(GameConfig.DIMENSION):
-            for c in range(GameConfig.DIMENSION):
+        for r in range(GAME_CONFIG.DIMENSION):
+            for c in range(GAME_CONFIG.DIMENSION):
                 if self.board[r][c] == '--':
                     continue
                 else:

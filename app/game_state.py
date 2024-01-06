@@ -18,6 +18,8 @@ class GameState:
         self.curr_castling_rights = CastlingRights()
         self.castling_rights_log = [CastlingRights()]
         self.in_check = False
+        self.checkmate = False
+        self.stalemate = False
 
 
     def change_turn(self):

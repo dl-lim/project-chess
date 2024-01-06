@@ -1,4 +1,4 @@
-from app.config import GameConfig
+from app.config import GAME_CONFIG
 from app.fen import FENConverter
 
 class Board:
@@ -27,8 +27,8 @@ class Board:
     def _check_valid_board_list(self, board):
         return (
         isinstance(board, list)
-        and len(board) == GameConfig.DIMENSION
-        and all(isinstance(inner_list, list) and len(inner_list) == GameConfig.DIMENSION for inner_list in board)
+        and len(board) == GAME_CONFIG.DIMENSION
+        and all(isinstance(inner_list, list) and len(inner_list) == GAME_CONFIG.DIMENSION for inner_list in board)
     )
 
     def __eq__(self, other):
