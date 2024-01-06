@@ -36,12 +36,16 @@ class GameState:
         projected_board.make_projection(move)
         self.board = Board(projected_board.board)
         self.move_log.append(projected_board.projection_log[-1])
+        self.en_passant_log.append(projected_board.en_passant_log[-1])
+        self.en_passant_possible = projected_board.en_passant_possible
         self.change_turn()
 
     def undo_move(self):
-        if self.move_log:
+        if len(self.move_log) > 0:
             projected_board = Projection(self, self.board)
             projected_board.projection_log = self.move_log
+            projected_board.en_passant_log = self.en_passant_log
+            self.en_passant_possible = projected_board.en_passant_possible
             projected_board.undo_projection()
             self.board = Board(projected_board.board)
             self.change_turn()
