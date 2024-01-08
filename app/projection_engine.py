@@ -1,5 +1,5 @@
 from app.board import Board
-from app.config import GameConfig
+from app.config import GAME_CONFIG
 import copy
 
 from icecream import ic
@@ -7,7 +7,6 @@ from icecream import ic
 class Projection(Board):
     def __init__(self, game_state, board):
         super().__init__(board)
-        self.white_to_move = True if game_state.turn == "White" else False
         self.game_state = game_state
         self.move_functions = {
             'P': self.get_pawn_moves,
@@ -37,7 +36,7 @@ class Projection(Board):
             self.white_king_pos = move.end_sq
         elif move.piece_moved == 'bK':
             self.black_king_pos = move.end_sq
-        print(move.get_chess_notation())
+        # print(move.get_chess_notation())
         
         # Checks if move pushes pawns to promotion
         if move.is_pawn_promotion:
@@ -112,7 +111,6 @@ class Projection(Board):
             self.curr_castling_rights = self.castling_rights_log[-1]
 
             self.white_to_move = not self.white_to_move
-
         
 
     def get_valid_moves(self):
@@ -249,8 +247,8 @@ class Projection(Board):
             test_board[move.end_row][move.end_col] = move.piece_moved
         
         test_white_king_pos, test_black_king_pos = None, None
-        for row in range(GameConfig.DIMENSION):
-            for col in range(GameConfig.DIMENSION):
+        for row in range(GAME_CONFIG.DIMENSION):
+            for col in range(GAME_CONFIG.DIMENSION):
                 if test_white_king_pos and test_black_king_pos:
                     break
                 if test_board[row][col][1] == 'K':
@@ -275,8 +273,8 @@ class Projection(Board):
         All moves without considering checks
         """
         moves = []
-        for r in range(GameConfig.DIMENSION):
-            for c in range(GameConfig.DIMENSION):
+        for r in range(GAME_CONFIG.DIMENSION):
+            for c in range(GAME_CONFIG.DIMENSION):
                 if self.board[r][c] == '--':
                     continue
                 else:
@@ -429,12 +427,16 @@ class Projection(Board):
             winner = 'Black' if self.white_to_move else 'White'
             loser = 'White' if self.white_to_move else 'Black'
             self.in_check = True
-            print('CHECKMATE for', loser)
-            print(winner, 'wins!')
+            self.checkmate = True
+            # TODO - escape this to the gamestate via attributes
+            # print('CHECKMATE for', loser)
+            # print(winner, 'wins!')
         else:
             enemy_team = 'White' if self.white_to_move else 'Black'
             self.in_check = True
-            print('CHECK on', enemy_team)
+            # print('CHECK on', enemy_team)
+
+        
 
 
 

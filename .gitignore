@@ -1,6 +1,6 @@
 /.vscode
 /.venv
-__pycache__/
+**/__pycache__/
 *.pyc
 /notes.md
 /*egg-info

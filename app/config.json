@@ -1,0 +1,12 @@
+{
+    "DIMENSION": 8,
+    "TILE_WIDTH": 60,
+    "LIGHT": "#EEEEEE",
+    "DARK": "#48a1d9",
+    "ANIMATE": true,
+    "CAPTION": "DL Chess",
+    "FPS": 15,
+    "ASSETS_FOLDER": "app/assets/",
+    "PLAYER_WHITE": true,
+    "PLAYER_BLACK": false
+}

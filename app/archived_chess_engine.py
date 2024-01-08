@@ -1,11 +1,14 @@
+from app.archived_fen import fen_to_board
 import copy
-from app.fen import fen_to_board
+
+from icecream import ic
 
 DIMENSION = 8
+ori_board = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR'
 
 class GameState:
     def __init__(self):
-        self.board = fen_to_board('rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR')
+        self.board = fen_to_board('rnbqk2r/pppp1ppp/5n2/2b1p3/2B1P3/5N2/PPPP1PPP/RNBQK2R')
         self.move_functions = {
             'P': self.get_pawn_moves,
             'R': self.get_rook_moves,
@@ -405,6 +408,9 @@ class GameState:
                 self.get_queenside_castling_moves(r,c,moves)
     
     def get_kingside_castling_moves(self,r,c,moves):
+        ic(r, c)     
+        ic(self.board[r][c+2])
+
         if self.board[r][c+1] == '--' and self.board[r][c+2] == '--':
             if not self.square_under_attack(r, c+1) and not self.square_under_attack(r,c+2):
                 moves.append(Move((r,c),(r,c+2), self.board, is_castling=True))
