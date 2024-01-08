@@ -3,7 +3,10 @@ import pygame
 from app.config import GAME_CONFIG
 from app.game_state import GameState
 from app.projection_engine import Move
-from app.chess_ai import find_random_move, find_greedy_move
+from app.chess_ai import RandomAI # find_random_move, find_greedy_move
+
+from multiprocessing import Process, Queue
+
 
 from icecream import ic
 
@@ -19,6 +22,7 @@ class ChessGame:
         sq_selected = ()
         player_clicks = []
         move_made = False
+        suspend_moving = False
         game_over = False
 
         while run:
@@ -58,9 +62,14 @@ class ChessGame:
                 # KEYBOARD PRESSES
                 elif event.type == pygame.KEYDOWN:
                     if event.key == pygame.K_z:
+                        
                         gs.undo_move()
+                        if not (GAME_CONFIG.PLAYER_WHITE and GAME_CONFIG.PLAYER_BLACK):
+                            gs.undo_move() # extra undo if computer player
                         move_made = True
                         do_animation = False
+                        suspend_moving = True
+                        print('Undo_pressed')
 
                     elif event.key == pygame.K_r:
                         GAME_CONFIG.reset_clock()
@@ -70,13 +79,15 @@ class ChessGame:
                         sq_selected = ()
                         player_clicks = []
                         move_made = False
+                        suspend_moving = True
             
             # AI MOVE FINDER
-            if not game_over and not player_turn:
+            if not suspend_moving and not game_over and not player_turn:
+                random_ai = RandomAI(gs)
                 # ai_move = find_greedy_move(gs, valid_moves)
                 ai_move = None
                 if not ai_move:
-                    ai_move = find_random_move(valid_moves)
+                    ai_move = random_ai.find_random_move()
                 gs.make_move(ai_move)
                 move_made = True
 
@@ -86,6 +97,8 @@ class ChessGame:
                     self._animate_moves(gs.move_log[-1], gs.board)
                 valid_moves = gs.get_valid_moves()
                 move_made = False
+                suspend_moving = False
+
             
             self._draw_gamestate(gs, valid_moves, sq_selected)
 
