@@ -3,12 +3,15 @@ import pygame
 from app.config import GAME_CONFIG
 from app.game_state import GameState
 from app.projection_engine import Move
-from app.chess_ai import RandomAI # find_random_move, find_greedy_move
+from app.chess_ai import RandomAI, GreedyAI # find_random_move, find_greedy_move
 
 from multiprocessing import Process, Queue
 
 
 from icecream import ic
+
+castling_board = 'rnbqk2r/pppp1ppp/5n2/2b1p3/2B1P3/5N2/PPPP1PPP/RNBQK2R'
+
 
 class ChessGame:
     def __init__(self) -> None:
@@ -17,7 +20,7 @@ class ChessGame:
     def run(self):
         GAME_CONFIG.reset_clock()
         run = True
-        gs = GameState()
+        gs = GameState(castling_board)
         valid_moves = gs.get_valid_moves()
         sq_selected = ()
         player_clicks = []
@@ -83,11 +86,12 @@ class ChessGame:
             
             # AI MOVE FINDER
             if not suspend_moving and not game_over and not player_turn:
-                random_ai = RandomAI(gs)
+                # ai = RandomAI(gs)
+                ai = GreedyAI(gs)
                 # ai_move = find_greedy_move(gs, valid_moves)
                 ai_move = None
                 if not ai_move:
-                    ai_move = random_ai.find_random_move()
+                    ai_move = ai.find_move()
                 gs.make_move(ai_move)
                 move_made = True
 

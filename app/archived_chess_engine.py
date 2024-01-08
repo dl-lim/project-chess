@@ -1,13 +1,14 @@
+from app.archived_fen import fen_to_board
 import copy
-from app.fen import fen_to_board
+
+from icecream import ic
 
 DIMENSION = 8
+ori_board = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR'
 
 class GameState:
     def __init__(self):
-        self.board = fen_to_board('rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR')
-        self.projected_board = copy.deepcopy(self.board)
-        self.projection_log = []
+        self.board = fen_to_board('rnbqk2r/pppp1ppp/5n2/2b1p3/2B1P3/5N2/PPPP1PPP/RNBQK2R')
         self.move_functions = {
             'P': self.get_pawn_moves,
             'R': self.get_rook_moves,
@@ -27,34 +28,26 @@ class GameState:
         self.castling_rights_log = [CastlingRights()]
         self.in_check = False
 
-        self.checkmate = False
-        self.stalemate = False
-
-
-    def get_move_notation(self, move):
-        return str((len(self.move_log) // 2) + 1) + " " + move.get_chess_notation()
-
-    def project_move(self, move):
+    def make_move(self,move):
         """
-        Use Move object to project a move
+        Use Move object to make a move
         """
-        self.projected_board = copy.deepcopy(self.board)
-
-        self.projected_board[move.start_row][move.start_col] = '--'
-        self.projected_board[move.end_row][move.end_col] = move.piece_moved
+        self.board[move.start_row][move.start_col] = '--'
+        self.board[move.end_row][move.end_col] = move.piece_moved
         
         if move.piece_moved == 'wK':
             self.white_king_pos = move.end_sq
         elif move.piece_moved == 'bK':
             self.black_king_pos = move.end_sq
+        print(move.get_chess_notation())
         
         # Checks if move pushes pawns to promotion
         if move.is_pawn_promotion:
-            self.projected_board[move.end_row][move.end_col] = move.piece_moved[0] + 'Q' # to do this choice on main.py to avoid changing the Move class
+            self.board[move.end_row][move.end_col] = move.piece_moved[0] + 'Q' # to do this choice on main.py to avoid changing the Move class
         
         # Removes enemy pawn behind en passant
         if move.is_en_passant:
-            self.projected_board[move.start_row][move.end_col] = '--'
+            self.board[move.start_row][move.end_col] = '--'
         
         # Generates en passant posibilities
         if move.piece_moved[1] == 'P' and abs(move.start_row - move.end_row) == 2:
@@ -67,11 +60,11 @@ class GameState:
         # Castling move
         if move.is_castling:
             if move.end_col - move.start_col > 0: # kingside castle move
-                self.projected_board[move.end_row][move.end_col-1] = self.projected_board[move.end_row][move.end_col+1]
-                self.projected_board[move.end_row][move.end_col+1] = '--'
+                self.board[move.end_row][move.end_col-1] = self.board[move.end_row][move.end_col+1]
+                self.board[move.end_row][move.end_col+1] = '--'
             else: # queenside
-                self.projected_board[move.end_row][move.end_col+1] = self.projected_board[move.end_row][move.end_col-2]
-                self.projected_board[move.end_row][move.end_col-2] = '--'
+                self.board[move.end_row][move.end_col+1] = self.board[move.end_row][move.end_col-2]
+                self.board[move.end_row][move.end_col-2] = '--'
         
         # Update Castling Rights
         self.update_castling_rights(move)
@@ -79,7 +72,8 @@ class GameState:
         # Append to logs
         self.castling_rights_log.append(CastlingRights(self.curr_castling_rights.wks, self.curr_castling_rights.wqs,
                                         self.curr_castling_rights.bks, self.curr_castling_rights.bqs))
-        self.projection_log.append(move)
+        self.move_log.append(move)
+
         # Change to other team before checking for checks
         self.white_to_move = not self.white_to_move
 
@@ -89,26 +83,11 @@ class GameState:
         else:
             self.in_check = False
 
-    def reset_projection(self):
-        self.projected_board = copy.deepcopy(self.board)
-
-    def undo_projection(self):
-        self._undo('projection')
-
     def undo_move(self):
-        self._undo('move')
-    
-
-    def _undo(self, undo_type):
-        if undo_type == 'projection':
-            board = self.projected_board
-        elif undo_type == 'move':
-            board = self.board
-        
         if len(self.move_log) > 0:
             prev_move = self.move_log.pop()
-            board[prev_move.start_row][prev_move.start_col] = prev_move.piece_moved
-            board[prev_move.end_row][prev_move.end_col] = prev_move.piece_captured
+            self.board[prev_move.start_row][prev_move.start_col] = prev_move.piece_moved
+            self.board[prev_move.end_row][prev_move.end_col] = prev_move.piece_captured
             
             if prev_move.piece_moved == 'wK':
                 self.white_king_pos = prev_move.start_sq
@@ -116,151 +95,37 @@ class GameState:
                 self.black_king_pos = prev_move.start_sq
             
             if prev_move.is_en_passant:
-                board[prev_move.end_row][prev_move.end_col] = '--'
-                board[prev_move.start_row][prev_move.end_col] = prev_move.piece_captured
+                self.board[prev_move.end_row][prev_move.end_col] = '--'
+                self.board[prev_move.start_row][prev_move.end_col] = prev_move.piece_captured
             
             self.en_passant_log.pop()
             self.en_passant_possible = self.en_passant_log[-1] #(prev_move.end_row, prev_move.end_col)
 
             if prev_move.is_castling:
                 if prev_move.end_col - prev_move.start_col > 0: # kingside castle move
-                    board[prev_move.end_row][prev_move.end_col+1] = board[prev_move.end_row][prev_move.end_col-1]
-                    board[prev_move.end_row][prev_move.end_col-1] = '--'
+                    self.board[prev_move.end_row][prev_move.end_col+1] = self.board[prev_move.end_row][prev_move.end_col-1]
+                    self.board[prev_move.end_row][prev_move.end_col-1] = '--'
                 else: # queenside
-                    board[prev_move.end_row][prev_move.end_col-2] = board[prev_move.end_row][prev_move.end_col+1]
-                    board[prev_move.end_row][prev_move.end_col+1] = '--'
+                    self.board[prev_move.end_row][prev_move.end_col-2] = self.board[prev_move.end_row][prev_move.end_col+1]
+                    self.board[prev_move.end_row][prev_move.end_col+1] = '--'
 
             self.castling_rights_log.pop()
             self.curr_castling_rights = self.castling_rights_log[-1]
 
             self.white_to_move = not self.white_to_move
 
-            self.checkmate = False
-            self.stalemate = False
-
-    def make_move(self, move):
-        self.reset_projection()
-        self.project_move(move)
-        self.board = copy.deepcopy(self.projected_board)
-        self.reset_projection()
-        self.move_log.append(move)
-        print(self.get_move_notation(move))
-
-    def get_valid_moves(self, board_type):
+    def get_valid_moves(self):
         """
         All moves considering checks
         """
         temp_castling_rights = CastlingRights(self.curr_castling_rights.wks, self.curr_castling_rights.wqs,
                                           self.curr_castling_rights.bks, self.curr_castling_rights.bqs)
 
-        possible_moves = self.get_all_possible_moves(board_type)
+        possible_moves = self.get_all_possible_moves()
         for m in range(len(possible_moves)-1, -1, -1):
             move = possible_moves[m]
             if self.check_for_checks(move):
                 possible_moves.pop(m)
-
-
-    # def make_move(self, move):
-    #     """
-    #     Use Move object to make a move
-    #     """
-    #     self.board[move.start_row][move.start_col] = '--'
-    #     self.board[move.end_row][move.end_col] = move.piece_moved
-        
-    #     if move.piece_moved == 'wK':
-    #         self.white_king_pos = move.end_sq
-    #     elif move.piece_moved == 'bK':
-    #         self.black_king_pos = move.end_sq
-    #     print(self.get_move_notation(move))
-        
-    #     # Checks if move pushes pawns to promotion
-    #     if move.is_pawn_promotion:
-    #         self.board[move.end_row][move.end_col] = move.piece_moved[0] + 'Q' # to do this choice on main.py to avoid changing the Move class
-        
-    #     # Removes enemy pawn behind en passant
-    #     if move.is_en_passant:
-    #         self.board[move.start_row][move.end_col] = '--'
-        
-    #     # Generates en passant posibilities
-    #     if move.piece_moved[1] == 'P' and abs(move.start_row - move.end_row) == 2:
-    #         self.en_passant_possible = ((move.start_row + move.end_row) // 2, move.start_col)
-    #     else:
-    #         self.en_passant_possible = ()
-
-    #     self.en_passant_log.append(self.en_passant_possible)
-
-    #     # Castling move
-    #     if move.is_castling:
-    #         if move.end_col - move.start_col > 0: # kingside castle move
-    #             self.board[move.end_row][move.end_col-1] = self.board[move.end_row][move.end_col+1]
-    #             self.board[move.end_row][move.end_col+1] = '--'
-    #         else: # queenside
-    #             self.board[move.end_row][move.end_col+1] = self.board[move.end_row][move.end_col-2]
-    #             self.board[move.end_row][move.end_col-2] = '--'
-        
-    #     # Update Castling Rights
-    #     self.update_castling_rights(move)
-
-    #     # Append to logs
-    #     self.castling_rights_log.append(CastlingRights(self.curr_castling_rights.wks, self.curr_castling_rights.wqs,
-    #                                     self.curr_castling_rights.bks, self.curr_castling_rights.bqs))
-    #     self.move_log.append(move)
-
-    #     # Change to other team before checking for checks
-    #     self.white_to_move = not self.white_to_move
-
-    #     # Check for checks or checkmate or stalemate
-    #     if self.check_for_checks() or len(self.get_valid_moves()) == 0:
-    #         self.check_for_checkmate()
-    #     else:
-    #         self.in_check = False
-
-    # def undo_move(self):
-    #     if len(self.move_log) > 0:
-    #         prev_move = self.move_log.pop()
-    #         self.board[prev_move.start_row][prev_move.start_col] = prev_move.piece_moved
-    #         self.board[prev_move.end_row][prev_move.end_col] = prev_move.piece_captured
-            
-    #         if prev_move.piece_moved == 'wK':
-    #             self.white_king_pos = prev_move.start_sq
-    #         elif prev_move.piece_moved == 'bK':
-    #             self.black_king_pos = prev_move.start_sq
-            
-    #         if prev_move.is_en_passant:
-    #             self.board[prev_move.end_row][prev_move.end_col] = '--'
-    #             self.board[prev_move.start_row][prev_move.end_col] = prev_move.piece_captured
-            
-    #         self.en_passant_log.pop()
-    #         self.en_passant_possible = self.en_passant_log[-1] #(prev_move.end_row, prev_move.end_col)
-
-    #         if prev_move.is_castling:
-    #             if prev_move.end_col - prev_move.start_col > 0: # kingside castle move
-    #                 self.board[prev_move.end_row][prev_move.end_col+1] = self.board[prev_move.end_row][prev_move.end_col-1]
-    #                 self.board[prev_move.end_row][prev_move.end_col-1] = '--'
-    #             else: # queenside
-    #                 self.board[prev_move.end_row][prev_move.end_col-2] = self.board[prev_move.end_row][prev_move.end_col+1]
-    #                 self.board[prev_move.end_row][prev_move.end_col+1] = '--'
-
-    #         self.castling_rights_log.pop()
-    #         self.curr_castling_rights = self.castling_rights_log[-1]
-
-    #         self.white_to_move = not self.white_to_move
-
-    #         self.checkmate = False
-    #         self.stalemate = False
-
-    # def get_valid_moves(self):
-    #     """
-    #     All moves considering checks
-    #     """
-    #     temp_castling_rights = CastlingRights(self.curr_castling_rights.wks, self.curr_castling_rights.wqs,
-    #                                       self.curr_castling_rights.bks, self.curr_castling_rights.bqs)
-
-    #     possible_moves = self.get_all_possible_moves()
-    #     for m in range(len(possible_moves)-1, -1, -1):
-    #         move = possible_moves[m]
-    #         if self.check_for_checks(move):
-    #             possible_moves.pop(m)
 
         self.curr_castling_rights = temp_castling_rights
         return possible_moves
@@ -377,7 +242,7 @@ class GameState:
         # for king piece, check rook, pawn, knight or bishop attack    
         
         # test the move for checks
-        test_board = copy.deepcopy(self.projected_board)
+        test_board = copy.deepcopy(self.board)
         if move:
             test_board[move.start_row][move.start_col] = '--'
             test_board[move.end_row][move.end_col] = move.piece_moved
@@ -404,27 +269,19 @@ class GameState:
         return self.square_under_attack(r,c,test_board)
 
 
-    def get_all_possible_moves(self, board_type):
+    def get_all_possible_moves(self):
         """
         All moves without considering checks
         """
-        if board_type not in ['projected','main']:
-            raise ValueError("Invalid board_type input")
-        
-        if board_type == 'main':
-            board = self.board
-        elif board == 'projected':
-            board = self.projected_board
-
         moves = []
         for r in range(DIMENSION):
             for c in range(DIMENSION):
-                if board[r][c] == '--':
+                if self.board[r][c] == '--':
                     continue
                 else:
-                    team = board[r][c][0]
+                    team = self.board[r][c][0]
                     if (team == 'w' and self.white_to_move) or (team == 'b' and not self.white_to_move):
-                        piece = board[r][c][1]
+                        piece = self.board[r][c][1]
                         self.move_functions[piece](r,c,moves)
         return moves
 
@@ -551,6 +408,9 @@ class GameState:
                 self.get_queenside_castling_moves(r,c,moves)
     
     def get_kingside_castling_moves(self,r,c,moves):
+        ic(r, c)     
+        ic(self.board[r][c+2])
+
         if self.board[r][c+1] == '--' and self.board[r][c+2] == '--':
             if not self.square_under_attack(r, c+1) and not self.square_under_attack(r,c+2):
                 moves.append(Move((r,c),(r,c+2), self.board, is_castling=True))
@@ -565,14 +425,12 @@ class GameState:
         current_moves = self.get_valid_moves()
 
         if len(current_moves) == 0 and not self.check_for_checks():
-            self.stalemate = True
             print('Stalemate')
 
         elif len(current_moves) == 0 and self.check_for_checks():
             winner = 'Black' if self.white_to_move else 'White'
             loser = 'White' if self.white_to_move else 'Black'
             self.in_check = True
-            self.checkmate = True
             print('CHECKMATE for', loser)
             print(winner, 'wins!')
         else:
